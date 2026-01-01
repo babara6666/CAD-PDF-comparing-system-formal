@@ -1,6 +1,8 @@
-# Engineering Drawing Comparison System
+# CAD PDF Comparing System
 
 A web-based system for comparing PDF engineering drawings with automatic alignment, difference detection, and interactive visualization.
+
+Input two PDFs and the system will generate the difference of the PDFs with heatmap visualization.
 
 ## Features
 

@@ -1,9 +1,25 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { getImageUrl } from '../api/client';
 import Controls from './Controls';
 import MiniMap from './MiniMap';
 import CoordinateDisplay from './CoordinateDisplay';
+
+// Throttle function for 60fps (16ms) updates
+function throttle(func, limit) {
+  let inThrottle = false;
+  let lastResult;
+  return function(...args) {
+    if (!inThrottle) {
+      lastResult = func.apply(this, args);
+      inThrottle = true;
+      requestAnimationFrame(() => {
+        inThrottle = false;
+      });
+    }
+    return lastResult;
+  };
+}
 
 function ComparisonViewer({ data, onPageChange }) {
   const [layers, setLayers] = useState({
@@ -12,14 +28,15 @@ function ComparisonViewer({ data, onPageChange }) {
     blue: true
   });
   const [opacity, setOpacity] = useState(60);
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [clickPos, setClickPos] = useState(null);
-  const [viewportBounds, setViewportBounds] = useState({ x: 0, y: 0, width: 100, height: 100 });
+  const [zoomLevel, setZoomLevel] = useState(100);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(null);
   
+  // Use refs for values that don't need to trigger re-renders
   const containerRef = useRef(null);
   const transformRef = useRef(null);
+  const viewportBoundsRef = useRef({ x: 0, y: 0, width: 100, height: 100 });
 
   // Reset loading state when data changes
   useEffect(() => {
@@ -35,17 +52,15 @@ function ComparisonViewer({ data, onPageChange }) {
     setOpacity(value);
   }, []);
 
-  const handleMouseMove = useCallback((e) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    setMousePos({ x, y });
-  }, []);
-
+  // Click handler only - no mousemove tracking during pan
   const handleClick = useCallback((e) => {
     if (!data?.scaling_factor) return;
     
-    const rect = e.currentTarget.getBoundingClientRect();
+    // Get image element for accurate coordinate calculation
+    const imgElement = e.currentTarget.querySelector('img');
+    if (!imgElement) return;
+    
+    const rect = imgElement.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     
@@ -59,17 +74,19 @@ function ComparisonViewer({ data, onPageChange }) {
     });
   }, [data?.scaling_factor]);
 
-  const handleTransform = useCallback((ref) => {
-    if (containerRef.current && ref) {
-      const container = containerRef.current.getBoundingClientRect();
-      const scale = ref.state.scale;
-      const x = -ref.state.positionX / scale;
-      const y = -ref.state.positionY / scale;
-      const width = container.width / scale;
-      const height = container.height / scale;
-      
-      setViewportBounds({ x, y, width, height });
-    }
+  // Throttled transform handler - update viewport bounds without re-render
+  const handleTransformEnd = useCallback((ref) => {
+    if (!containerRef.current || !ref?.state) return;
+    
+    const container = containerRef.current.getBoundingClientRect();
+    const scale = ref.state.scale || 1;
+    const x = -(ref.state.positionX || 0) / scale;
+    const y = -(ref.state.positionY || 0) / scale;
+    const width = container.width / scale;
+    const height = container.height / scale;
+    
+    viewportBoundsRef.current = { x, y, width, height };
+    setZoomLevel(Math.round(scale * 100));
   }, []);
 
   const handleMiniMapClick = useCallback((percentX, percentY) => {
@@ -88,8 +105,24 @@ function ComparisonViewer({ data, onPageChange }) {
     setImageError('Failed to load image');
   }, []);
 
+  // Memoize image URLs to prevent re-calculation
+  const imageUrls = useMemo(() => {
+    if (!data?.images) return null;
+    return {
+      base: getImageUrl(data.images.base),
+      red: getImageUrl(data.images.mask_red),
+      green: getImageUrl(data.images.mask_green),
+      blue: getImageUrl(data.images.mask_blue),
+    };
+  }, [data?.images]);
+
+  // Memoize overlay opacity style
+  const overlayStyle = useMemo(() => ({
+    opacity: opacity / 100
+  }), [opacity]);
+
   // Safety check for required data
-  if (!data || !data.images) {
+  if (!data || !data.images || !imageUrls) {
     return (
       <div className="flex h-[calc(100vh-57px)] items-center justify-center">
         <div className="text-center">
@@ -144,32 +177,49 @@ function ComparisonViewer({ data, onPageChange }) {
           )}
         </div>
 
-        {/* Zoomable/Pannable Image Container */}
+        {/* Zoomable/Pannable Image Container - OPTIMIZED */}
         <TransformWrapper
           ref={transformRef}
           initialScale={1}
           minScale={0.1}
           maxScale={10}
-          wheel={{ step: 0.1 }}
-          onTransformed={handleTransform}
+          wheel={{ step: 0.1, smoothStep: 0.005 }}
+          panning={{ velocityDisabled: false }}
+          velocityAnimation={{ 
+            sensitivity: 1,
+            animationTime: 300,
+            animationType: "easeOut"
+          }}
+          alignmentAnimation={{ sizeX: 0, sizeY: 0 }}
+          onTransformed={handleTransformEnd}
+          limitToBounds={false}
+          centerOnInit={false}
+          doubleClick={{ disabled: true }}
         >
-          {({ zoomIn, zoomOut, resetTransform, state }) => (
+          {({ zoomIn, zoomOut, resetTransform }) => (
             <>
               <TransformComponent
-                wrapperStyle={{ width: '100%', height: '100%' }}
-                contentStyle={{ width: '100%', height: '100%' }}
+                wrapperStyle={{ 
+                  width: '100%', 
+                  height: '100%',
+                  willChange: 'transform'
+                }}
+                contentStyle={{ 
+                  width: 'fit-content', 
+                  height: 'fit-content',
+                  willChange: 'transform'
+                }}
               >
                 <div 
-                  className="relative inline-block viewer-canvas"
-                  onMouseMove={handleMouseMove}
+                  className="relative inline-block gpu-accelerated"
                   onClick={handleClick}
                   style={{ marginTop: '60px' }}
                 >
-                  {/* Base Image (Reference) */}
+                  {/* Base Image (Reference) - Hardware Accelerated */}
                   <img
-                    src={getImageUrl(data.images.base)}
+                    src={imageUrls.base}
                     alt="Reference Drawing"
-                    className="max-w-none"
+                    className="max-w-none gpu-accelerated select-none"
                     draggable={false}
                     onLoad={handleImageLoad}
                     onError={handleImageError}
@@ -178,10 +228,10 @@ function ComparisonViewer({ data, onPageChange }) {
                   {/* Red Mask Overlay (Missing) */}
                   {layers.red && (
                     <img
-                      src={getImageUrl(data.images.mask_red)}
+                      src={imageUrls.red}
                       alt="Missing elements"
-                      className="mask-overlay"
-                      style={{ opacity: opacity / 100 }}
+                      className="mask-overlay gpu-accelerated"
+                      style={overlayStyle}
                       draggable={false}
                     />
                   )}
@@ -189,10 +239,10 @@ function ComparisonViewer({ data, onPageChange }) {
                   {/* Green Mask Overlay (Added) */}
                   {layers.green && (
                     <img
-                      src={getImageUrl(data.images.mask_green)}
+                      src={imageUrls.green}
                       alt="Added elements"
-                      className="mask-overlay"
-                      style={{ opacity: opacity / 100 }}
+                      className="mask-overlay gpu-accelerated"
+                      style={overlayStyle}
                       draggable={false}
                     />
                   )}
@@ -200,10 +250,10 @@ function ComparisonViewer({ data, onPageChange }) {
                   {/* Blue Mask Overlay (Modified) */}
                   {layers.blue && (
                     <img
-                      src={getImageUrl(data.images.mask_blue)}
+                      src={imageUrls.blue}
                       alt="Modified elements"
-                      className="mask-overlay"
-                      style={{ opacity: opacity / 100 }}
+                      className="mask-overlay gpu-accelerated"
+                      style={overlayStyle}
                       draggable={false}
                     />
                   )}
@@ -221,7 +271,7 @@ function ComparisonViewer({ data, onPageChange }) {
                     <span className="material-symbols-outlined">remove</span>
                   </button>
                   <span className="text-sm font-bold w-14 text-center text-slate-900 dark:text-white">
-                    {Math.round((state?.scale || 1) * 100)}%
+                    {zoomLevel}%
                   </span>
                   <button 
                     onClick={() => zoomIn()}
@@ -252,8 +302,8 @@ function ComparisonViewer({ data, onPageChange }) {
 
         {/* MiniMap */}
         <MiniMap 
-          baseImage={getImageUrl(data.images.base)}
-          viewportBounds={viewportBounds}
+          baseImage={imageUrls.base}
+          viewportBounds={viewportBoundsRef.current}
           onNavigate={handleMiniMapClick}
         />
       </section>

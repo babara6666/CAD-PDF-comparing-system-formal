@@ -139,3 +139,83 @@ body {
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+/* ===== PERFORMANCE OPTIMIZATIONS ===== */
+
+/* GPU Acceleration - Force hardware compositing layer */
+.gpu-accelerated {
+  transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  perspective: 1000px;
+  -webkit-perspective: 1000px;
+}
+
+/* Override mask-overlay for GPU acceleration */
+.mask-overlay {
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  /* Remove transition during pan for instant response */
+  transition: none;
+  /* GPU acceleration */
+  transform: translateZ(0);
+  will-change: opacity;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Only animate opacity when not actively panning */
+.mask-overlay.can-animate {
+  transition: opacity 0.2s ease;
+}
+
+/* Optimize the transform component wrapper */
+.react-transform-wrapper {
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+.react-transform-component {
+  will-change: transform;
+  transform-origin: 0 0;
+  backface-visibility: hidden;
+}
+
+/* Prevent layout thrashing during pan */
+.viewer-canvas,
+.viewer-canvas img {
+  contain: layout style paint;
+  content-visibility: auto;
+}
+
+/* Disable text selection during pan for smoother interaction */
+.viewer-canvas {
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+.viewer-canvas:active {
+  cursor: grabbing;
+}
+
+/* Image rendering optimization for crisp lines at any zoom */
+.viewer-canvas img {
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+  .viewer-canvas {
+    touch-action: pan-x pan-y pinch-zoom;
+  }
+}
+

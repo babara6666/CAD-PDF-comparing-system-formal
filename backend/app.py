@@ -23,6 +23,7 @@ from modules.pdf_loader import (
 )
 from modules.alignment import align_images, AlignmentError
 from modules.diff_engine import generate_difference_masks, save_overlay_as_png
+from modules.tile_generator import generate_dzi_tiles
 from modules.utils import (
     generate_session_id,
     secure_filename,
@@ -346,7 +347,120 @@ async def cleanup_old(
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
-    return {"status": "healthy", "version": "1.0.0"}
+    return {"status": "healthy", "version": "2.0.0"}
+
+
+@app.get("/process-tiles/{session_id}")
+async def process_tiles(
+    session_id: str,
+    page: int = Query(0, ge=0, description="Page number (0-indexed)"),
+    dpi: int = Query(300, ge=72, le=600, description="Render DPI"),
+    threshold: int = Query(30, ge=1, le=100, description="Difference threshold"),
+    grayscale: bool = Query(False, description="Use grayscale base image")
+):
+    """
+    Process PDF and generate DZI tiles for high-performance viewing.
+    
+    Returns URLs for tile pyramid and heatmap overlay data.
+    """
+    if session_id not in sessions:
+        raise HTTPException(status_code=404, detail="Session not found. Upload files first.")
+    
+    session = sessions[session_id]
+    
+    # Validate page number
+    max_pages = min(session["ref_pages"], session["target_pages"])
+    if page >= max_pages:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Page {page} out of range. Max comparable pages: {max_pages}"
+        )
+    
+    try:
+        # Load PDF pages as images
+        ref_gray, scaling_factor = load_pdf_page_as_image(
+            session["ref_path"], page, dpi
+        )
+        target_gray, _ = load_pdf_page_as_image(
+            session["target_path"], page, dpi
+        )
+        
+        # Load color/grayscale version for display
+        ref_color, _ = load_pdf_page_as_color_image(
+            session["ref_path"], page, dpi, grayscale=grayscale
+        )
+        
+        # Align target to reference
+        try:
+            aligned_gray, alignment_stats = align_images(ref_gray, target_gray)
+        except AlignmentError as e:
+            raise HTTPException(status_code=422, detail=f"Alignment failed: {str(e)}")
+        
+        # Generate difference masks
+        overlay_red, overlay_green, overlay_blue, diff_stats = generate_difference_masks(
+            ref_gray, 
+            aligned_gray,
+            threshold=threshold
+        )
+        
+        # Create page output directory
+        page_dir = get_page_dir(session_id, page)
+        tiles_dir = page_dir / "tiles"
+        tiles_dir.mkdir(exist_ok=True)
+        
+        # Generate DZI tiles for base image
+        base_tiles_dir = tiles_dir / "base"
+        tile_info = generate_dzi_tiles(ref_color, str(base_tiles_dir), tile_size=256)
+        
+        # Also save masks as regular PNGs for overlay
+        red_path = page_dir / "mask_red.png"
+        green_path = page_dir / "mask_green.png"
+        blue_path = page_dir / "mask_blue.png"
+        
+        save_overlay_as_png(overlay_red, str(red_path))
+        save_overlay_as_png(overlay_green, str(green_path))
+        save_overlay_as_png(overlay_blue, str(blue_path))
+        
+        # Construct URLs
+        base_url = f"/images/{session_id}/page_{page}"
+        
+        result = {
+            "status": "completed",
+            "current_page": page,
+            "total_pages": max_pages,
+            "scaling_factor": scaling_factor,
+            "tiles": {
+                "dzi_url": f"{base_url}/tiles/base/image.dzi",
+                "tiles_url": f"{base_url}/tiles/base/tiles",
+                "width": tile_info["width"],
+                "height": tile_info["height"],
+                "tile_size": tile_info["tile_size"],
+                "max_level": tile_info["max_level"]
+            },
+            "overlays": {
+                "mask_red": f"{base_url}/mask_red.png",
+                "mask_green": f"{base_url}/mask_green.png",
+                "mask_blue": f"{base_url}/mask_blue.png"
+            },
+            "stats": {
+                **alignment_stats,
+                **diff_stats
+            },
+            "files": {
+                "reference": session["ref_filename"],
+                "target": session["target_filename"]
+            }
+        }
+        
+        # Cache results
+        session.setdefault("tiled_pages", {})[page] = result
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Tile generation failed: {str(e)}")
 
 
 if __name__ == "__main__":

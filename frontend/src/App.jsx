@@ -1,6 +1,6 @@
 import { useState, useCallback, Component } from 'react';
 import UploadPage from './components/UploadPage';
-import ComparisonViewer from './components/ComparisonViewer';
+import PixiViewer from './components/PixiViewer';
 import ProcessingSpinner from './components/ProcessingSpinner';
 import { uploadPdfs, processPage } from './api/client';
 
@@ -152,7 +152,7 @@ function App() {
         )}
         
         {step === 'results' && sessionData && (
-          <ComparisonViewer 
+          <PixiViewer 
             data={sessionData} 
             onPageChange={handlePageChange}
           />

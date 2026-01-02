@@ -92,7 +92,33 @@ export async function cleanupSession(sessionId) {
  * @returns {string} Full URL
  */
 export function getImageUrl(imagePath) {
+  if (!imagePath) return '';
   return `${API_BASE}${imagePath}`;
+}
+
+/**
+ * Process a page with tile generation for high-performance viewing
+ * @param {string} sessionId - Session ID from upload
+ * @param {number} page - Page number (0-indexed)
+ * @param {Object} options - Processing options
+ * @returns {Promise<Object>} Processing results with tile URLs
+ */
+export async function processTiles(sessionId, page = 0, options = {}) {
+  const params = new URLSearchParams({
+    page: page.toString(),
+    dpi: (options.dpi || 300).toString(),
+    threshold: (options.threshold || 30).toString(),
+    grayscale: (options.grayscale || false).toString(),
+  });
+
+  const response = await fetch(`${API_BASE}/process-tiles/${sessionId}?${params}`);
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Tile generation failed');
+  }
+
+  return response.json();
 }
 
 /**
@@ -103,3 +129,4 @@ export async function healthCheck() {
   const response = await fetch(`${API_BASE}/health`);
   return response.json();
 }
+

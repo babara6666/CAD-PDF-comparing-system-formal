@@ -118,7 +118,8 @@ def load_pdf_page_as_image(
 def load_pdf_page_as_color_image(
     pdf_path: str, 
     page_num: int = 0, 
-    dpi: int = 300
+    dpi: int = 300,
+    grayscale: bool = False
 ) -> Tuple[np.ndarray, float]:
     """
     Convert a specific page of PDF to high-resolution color image (for display).
@@ -127,6 +128,7 @@ def load_pdf_page_as_color_image(
         pdf_path: Path to PDF file
         page_num: 0-indexed page number
         dpi: Render resolution
+        grayscale: If True, convert to grayscale (for better heatmap visibility)
         
     Returns:
         Tuple of (image_array, scaling_factor)
@@ -160,6 +162,12 @@ def load_pdf_page_as_color_image(
     else:
         img_bgr = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
     
+    # Convert to grayscale if requested (for better heatmap visibility on colored backgrounds)
+    if grayscale:
+        gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+        img_bgr = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
+    
     doc.close()
     
     return img_bgr, scaling_factor
+

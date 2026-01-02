@@ -1,4 +1,4 @@
-function Controls({ layers, opacity, stats, onLayerToggle, onOpacityChange }) {
+function Controls({ layers, opacity, stats, grayscaleMode, onLayerToggle, onOpacityChange, onGrayscaleToggle }) {
   return (
     <aside className="w-80 flex-none border-l border-slate-200 dark:border-slate-800 bg-background-light dark:bg-background-dark z-20 flex flex-col h-full shadow-xl">
       {/* Header */}
@@ -82,6 +82,17 @@ function Controls({ layers, opacity, stats, onLayerToggle, onOpacityChange }) {
               onChange={(e) => onOpacityChange(parseInt(e.target.value))}
               className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-primary"
             />
+          </div>
+
+          {/* Grayscale Mode Toggle - matches html_form2 style */}
+          <div className="flex items-center justify-between py-2">
+            <span className="text-sm text-slate-700 dark:text-slate-300">Grayscale Mode</span>
+            <button 
+              onClick={() => onGrayscaleToggle(!grayscaleMode)}
+              className={`${grayscaleMode ? 'bg-primary' : 'bg-slate-200 dark:bg-slate-700'} w-10 h-5 rounded-full relative transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary cursor-pointer`}
+            >
+              <div className={`absolute ${grayscaleMode ? 'left-5' : 'left-0.5'} top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-all duration-200`}></div>
+            </button>
           </div>
         </div>
 

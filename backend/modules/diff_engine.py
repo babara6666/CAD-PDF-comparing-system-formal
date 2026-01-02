@@ -11,7 +11,7 @@ from skimage.metrics import structural_similarity as ssim
 
 def apply_morphological_cleanup(
     mask: np.ndarray,
-    kernel_size: int = 3,
+    kernel_size: int = 2,
     iterations: int = 1
 ) -> np.ndarray:
     """
@@ -167,7 +167,7 @@ def generate_modified_mask_ssim(
         content_mask = np.logical_or(content_ref, content_target).astype(np.uint8) * 255
         mask = cv2.bitwise_and(mask, content_mask)
     
-    mask = apply_morphological_cleanup(mask, kernel_size=5)
+    mask = apply_morphological_cleanup(mask, kernel_size=3)  # Reduced from 5 for finer precision
     
     return mask
 
@@ -229,15 +229,15 @@ def generate_difference_masks(
     overlap_red_green = cv2.bitwise_or(mask_missing, mask_added)
     mask_modified = cv2.bitwise_and(mask_modified, cv2.bitwise_not(overlap_red_green))
     
-    # Convert to colored overlays
-    # Red (255, 0, 0) for Missing
-    overlay_red = mask_to_colored_overlay(mask_missing, (255, 60, 60), alpha=160)
+    # Convert to colored overlays with BRIGHTER alpha (200 instead of 160)
+    # Red (255, 60, 60) for Missing - A only content
+    overlay_red = mask_to_colored_overlay(mask_missing, (255, 60, 60), alpha=200)
     
-    # Green (0, 255, 0) for Added
-    overlay_green = mask_to_colored_overlay(mask_added, (34, 197, 94), alpha=160)
+    # Green (34, 197, 94) for Added - B only content
+    overlay_green = mask_to_colored_overlay(mask_added, (34, 197, 94), alpha=200)
     
-    # Blue (0, 120, 255) for Modified
-    overlay_blue = mask_to_colored_overlay(mask_modified, (59, 130, 246), alpha=160)
+    # Blue (59, 130, 246) for Modified - structural changes
+    overlay_blue = mask_to_colored_overlay(mask_modified, (59, 130, 246), alpha=200)
     
     # Calculate statistics
     stats = {

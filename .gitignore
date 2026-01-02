@@ -62,3 +62,7 @@ logs/
 .coverage
 htmlcov/
 .pytest_cache/
+
+# Project-specific files
+enhance req 0101.md
+html_form2.html

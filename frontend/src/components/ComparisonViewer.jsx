@@ -30,6 +30,7 @@ function ComparisonViewer({ data, onPageChange }) {
   const [opacity, setOpacity] = useState(60);
   const [clickPos, setClickPos] = useState(null);
   const [zoomLevel, setZoomLevel] = useState(100);
+  const [grayscaleMode, setGrayscaleMode] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(null);
   
@@ -110,11 +111,18 @@ function ComparisonViewer({ data, onPageChange }) {
     if (!data?.images) return null;
     return {
       base: getImageUrl(data.images.base),
+      baseGrayscale: data.images.base_grayscale ? getImageUrl(data.images.base_grayscale) : getImageUrl(data.images.base),
       red: getImageUrl(data.images.mask_red),
       green: getImageUrl(data.images.mask_green),
       blue: getImageUrl(data.images.mask_blue),
     };
   }, [data?.images]);
+
+  // Get current base image based on grayscale mode
+  const currentBaseImage = useMemo(() => {
+    if (!imageUrls) return null;
+    return grayscaleMode ? imageUrls.baseGrayscale : imageUrls.base;
+  }, [imageUrls, grayscaleMode]);
 
   // Memoize overlay opacity style
   const overlayStyle = useMemo(() => ({
@@ -217,7 +225,7 @@ function ComparisonViewer({ data, onPageChange }) {
                 >
                   {/* Base Image (Reference) - Hardware Accelerated */}
                   <img
-                    src={imageUrls.base}
+                    src={currentBaseImage}
                     alt="Reference Drawing"
                     className="max-w-none gpu-accelerated select-none"
                     draggable={false}
@@ -302,7 +310,7 @@ function ComparisonViewer({ data, onPageChange }) {
 
         {/* MiniMap */}
         <MiniMap 
-          baseImage={imageUrls.base}
+          baseImage={currentBaseImage}
           viewportBounds={viewportBoundsRef.current}
           onNavigate={handleMiniMapClick}
         />
@@ -313,8 +321,10 @@ function ComparisonViewer({ data, onPageChange }) {
         layers={layers}
         opacity={opacity}
         stats={data.stats}
+        grayscaleMode={grayscaleMode}
         onLayerToggle={handleLayerToggle}
         onOpacityChange={handleOpacityChange}
+        onGrayscaleToggle={setGrayscaleMode}
       />
     </div>
   );

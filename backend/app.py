@@ -209,9 +209,14 @@ async def process_comparison(
             session["target_path"], page, dpi
         )
         
-        # Also load color version of reference for display
+        # Load color version of reference for display
         ref_color, _ = load_pdf_page_as_color_image(
-            session["ref_path"], page, dpi
+            session["ref_path"], page, dpi, grayscale=False
+        )
+        
+        # Load grayscale version for better heatmap visibility
+        ref_grayscale, _ = load_pdf_page_as_color_image(
+            session["ref_path"], page, dpi, grayscale=True
         )
         
         # Align target to reference
@@ -230,9 +235,11 @@ async def process_comparison(
         # Create page output directory
         page_dir = get_page_dir(session_id, page)
         
-        # Save base image (reference)
-        base_path = page_dir / "reference.png"
-        cv2.imwrite(str(base_path), ref_color)
+        # Save base images (color and grayscale)
+        base_color_path = page_dir / "reference.png"
+        base_gray_path = page_dir / "reference_gray.png"
+        cv2.imwrite(str(base_color_path), ref_color)
+        cv2.imwrite(str(base_gray_path), ref_grayscale)
         
         # Save mask overlays
         red_path = page_dir / "mask_red.png"
@@ -247,6 +254,7 @@ async def process_comparison(
         base_url = f"/images/{session_id}/page_{page}"
         images = {
             "base": f"{base_url}/reference.png",
+            "base_grayscale": f"{base_url}/reference_gray.png",
             "mask_red": f"{base_url}/mask_red.png",
             "mask_green": f"{base_url}/mask_green.png",
             "mask_blue": f"{base_url}/mask_blue.png"

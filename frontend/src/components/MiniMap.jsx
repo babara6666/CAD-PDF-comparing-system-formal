@@ -13,13 +13,12 @@ function MiniMap({ baseImage, viewportBounds, onNavigate }) {
     onNavigate(x * 100, y * 100);
   }, [onNavigate]);
 
-  // Calculate viewport box position and size (as percentages)
-  // This is simplified - in production you'd calculate from actual image dimensions
+  // Calculate viewport box position and size (viewportBounds is already in %)
   const viewportStyle = {
-    left: `${Math.max(0, Math.min(80, viewportBounds.x / 10))}%`,
-    top: `${Math.max(0, Math.min(70, viewportBounds.y / 10))}%`,
-    width: `${Math.max(10, Math.min(100, viewportBounds.width / 10))}%`,
-    height: `${Math.max(10, Math.min(100, viewportBounds.height / 10))}%`,
+    left: `${Math.max(0, Math.min(100 - viewportBounds.width, viewportBounds.x))}%`,
+    top: `${Math.max(0, Math.min(100 - viewportBounds.height, viewportBounds.y))}%`,
+    width: `${Math.max(5, Math.min(100, viewportBounds.width))}%`,
+    height: `${Math.max(5, Math.min(100, viewportBounds.height))}%`,
   };
 
   return (

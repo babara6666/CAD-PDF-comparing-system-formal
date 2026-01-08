@@ -2,6 +2,7 @@ import { useState, useCallback, Component } from 'react';
 import UploadPage from './components/UploadPage';
 import PixiViewer from './components/PixiViewer';
 import ProcessingSpinner from './components/ProcessingSpinner';
+import ThemeToggle from './components/ThemeToggle';
 import { uploadPdfs, processPage } from './api/client';
 
 // Error Boundary to catch React crashes
@@ -121,6 +122,7 @@ function App() {
                 New Comparison
               </button>
             )}
+            <ThemeToggle />
           </div>
         </div>
       </header>

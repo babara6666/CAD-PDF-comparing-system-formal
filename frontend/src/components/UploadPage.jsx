@@ -1,17 +1,22 @@
 import { useState, useRef, useCallback } from 'react';
 
 function UploadPage({ onUpload }) {
+  // 宣告參考和目標檔案的狀態
   const [refFile, setRefFile] = useState(null);
   const [targetFile, setTargetFile] = useState(null);
+  // 拖放狀態，初始設定皆為 false
   const [dragOver, setDragOver] = useState({ ref: false, target: false });
   
+  // 參考和目標檔案的 input 參考
   const refInputRef = useRef(null);
   const targetInputRef = useRef(null);
 
   const handleDrop = useCallback((e, type) => {
     e.preventDefault();
+    // 重置拖放狀態
     setDragOver(prev => ({ ...prev, [type]: false }));
     
+    // 取得拖放的檔案
     const files = e.dataTransfer.files;
     if (files.length > 0) {
       const file = files[0];
@@ -25,17 +30,20 @@ function UploadPage({ onUpload }) {
     }
   }, []);
 
+  // 處理拖放進入事件
   const handleDragOver = useCallback((e, type) => {
     e.preventDefault();
     setDragOver(prev => ({ ...prev, [type]: true }));
   }, []);
 
+  // 處理拖放離開事件
   const handleDragLeave = useCallback((e, type) => {
     e.preventDefault();
     setDragOver(prev => ({ ...prev, [type]: false }));
   }, []);
-
+  
   const handleFileSelect = useCallback((e, type) => {
+    // 取得選擇的檔案
     const file = e.target.files?.[0];
     if (file) {
       if (type === 'ref') {
@@ -85,7 +93,7 @@ function UploadPage({ onUpload }) {
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">Drawing A</h3>
             </div>
             {refFile && (
-              <button 
+              <button  
                 onClick={() => setRefFile(null)}
                 className="text-xs font-medium text-red-500 hover:text-red-600 transition-colors flex items-center gap-1"
               >

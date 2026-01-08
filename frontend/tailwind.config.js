@@ -10,9 +10,12 @@ export default {
       colors: {
         "primary": "#137fec",
         "background-light": "#f6f7f8",
-        "background-dark": "#101922",
+        "background-dark": "#0f0518",
+        "primary-dark": "#7c3aed",
+        "accent-dark": "#2dd4bf",
         "surface-light": "#ffffff",
-        "surface-dark": "#1a2632",
+        "surface-dark": "#1a0b2e",
+        "surface-hover-dark": "#2d1b4e",
         "border-light": "#e7edf3",
         "border-dark": "#2a3b4d",
         "diff-a": "#ef4444",      // Red for A Only (missing)
@@ -28,6 +31,10 @@ export default {
         "lg": "0.5rem",
         "xl": "0.75rem",
         "full": "9999px"
+      },
+      boxShadow: {
+        "glow": "0 0 20px rgba(124, 58, 237, 0.5)",
+        "glow-sm": "0 0 10px rgba(124, 58, 237, 0.3)",
       },
     },
   },
